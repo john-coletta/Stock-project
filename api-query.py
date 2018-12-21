@@ -52,6 +52,7 @@ plt.plot(aapl_price_df['pricedate'], aapl_price_df['close'])
 
 plt.plot(aapl_options_df['pricedate'], aapl_options_df['lastprice'])
 
+'''
 myport = Portfolio.Portfolio()
 mt.get_one_option('aapl',myport)
 
@@ -66,7 +67,7 @@ for stock in myport.holdings:
     i += 1
     if i == 5:
         break
-    
+  '''  
 print(aapl_options_df[aapl_options_df['contractsymbol'] == str(aapl_options_df['contractsymbol'].head()[0])]['pricedate'])
 
 aapl_sorted = aapl_options_df.sort_values('pricedate')
@@ -74,10 +75,55 @@ aapl_grouped = aapl_sorted.groupby('contractsymbol')
 
 aapl_grouped.groups
 
+
+all_returns = pd.Series()
 for contract in aapl_grouped.groups.keys():
     returns = (aapl_grouped.get_group(contract)['lastprice'] - aapl_grouped.get_group(contract)['lastprice'].shift(1))/aapl_grouped.get_group(contract)['lastprice'].shift(1)
-    print(contract,returns)
-    i += 1
-    if i == 5:
-        break
+    #print(returns.index)
+    all_returns  = all_returns.append(returns)
+    #print(all_returns.index)
 
+all_returns.rename('returns',inplace=True)
+aapl_joined = aapl_options_df.join(all_returns)
+
+aapl_joined[aapl_joined['optiontype'] == 'put'].mean()
+
+def get_options(ticker):
+    '''
+    This function gets the option chain for a stock,
+    puts it into a pandas dataframe, and calculates
+    daily returns for each option
+    NOTE: the first occurance of each option has a 
+    return of NaN
+    '''
+    try:
+        type(ticker) == 'str'
+    except:
+        print('Please enter a string value')
+    
+    if type(ticker) == 'str':
+        options_url = 'http://100.26.29.52:5000/api/options/'
+    
+        r_ticker = requests.get(options_url + 'all/' + str(ticker))
+        
+        ticker_dict = json.loads(r_ticker.text)
+        ticker_df = pd.DataFrame(ticker_dict)
+        
+        ticker_df['pricedate'] = pd.to_datetime(ticker_df['pricedate'], unit='s')
+        ticker_df['expiry'] = pd.to_datetime(ticker_df['expiry'], unit='s')
+        
+        ticker_sorted = ticker_df.sort_values('pricedate')
+        ticker_grouped = ticker_sorted.groupby('contractsymbol')
+        
+        ticker_returns = pd.Series()
+        for contract in ticker_grouped.groups.keys():
+            sub_returns = (ticker_grouped.get_group(contract)['lastprice'] - ticker_grouped.get_group(contract)['lastprice'].shift(1))/ticker_grouped.get_group(contract)['lastprice'].shift(1)
+            #print(returns.index)
+            ticker_returns  = ticker_returns.append(sub_returns)
+            #print(all_returns.index)
+    
+        ticker_returns.rename('returns',inplace=True)
+        ticker_joined = ticker_df.join(ticker_returns)
+        
+        return(ticker_joined)
+    
