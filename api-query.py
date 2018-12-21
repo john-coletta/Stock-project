@@ -78,7 +78,7 @@ aapl_grouped.groups
 
 all_returns = pd.Series()
 for contract in aapl_grouped.groups.keys():
-    returns = (aapl_grouped.get_group(contract)['lastprice'] - aapl_grouped.get_group(contract)['lastprice'].shift(1))/aapl_grouped.get_group(contract)['lastprice'].shift(1)
+    returns = (aapl_grouped.get_group(contract)['lastprice'].shift(1) - aapl_grouped.get_group(contract)['lastprice'])/aapl_grouped.get_group(contract)['lastprice']
     #print(returns.index)
     all_returns  = all_returns.append(returns)
     #print(all_returns.index)
@@ -96,34 +96,32 @@ def get_options(ticker):
     NOTE: the first occurance of each option has a 
     return of NaN
     '''
-    try:
-        type(ticker) == 'str'
-    except:
-        print('Please enter a string value')
+
+    options_url = 'http://100.26.29.52:5000/api/options/'
+
+    r_ticker = requests.get(options_url + 'all/' + str(ticker))
     
-    if type(ticker) == 'str':
-        options_url = 'http://100.26.29.52:5000/api/options/'
+    ticker_dict = json.loads(r_ticker.text)
+    ticker_df = pd.DataFrame(ticker_dict)
     
-        r_ticker = requests.get(options_url + 'all/' + str(ticker))
-        
-        ticker_dict = json.loads(r_ticker.text)
-        ticker_df = pd.DataFrame(ticker_dict)
-        
-        ticker_df['pricedate'] = pd.to_datetime(ticker_df['pricedate'], unit='s')
-        ticker_df['expiry'] = pd.to_datetime(ticker_df['expiry'], unit='s')
-        
-        ticker_sorted = ticker_df.sort_values('pricedate')
-        ticker_grouped = ticker_sorted.groupby('contractsymbol')
-        
-        ticker_returns = pd.Series()
-        for contract in ticker_grouped.groups.keys():
-            sub_returns = (ticker_grouped.get_group(contract)['lastprice'] - ticker_grouped.get_group(contract)['lastprice'].shift(1))/ticker_grouped.get_group(contract)['lastprice'].shift(1)
-            #print(returns.index)
-            ticker_returns  = ticker_returns.append(sub_returns)
-            #print(all_returns.index)
+    ticker_df['pricedate'] = pd.to_datetime(ticker_df['pricedate'], unit='s')
+    ticker_df['expiry'] = pd.to_datetime(ticker_df['expiry'], unit='s')
     
-        ticker_returns.rename('returns',inplace=True)
-        ticker_joined = ticker_df.join(ticker_returns)
-        
-        return(ticker_joined)
+    ticker_sorted = ticker_df.sort_values('pricedate')
+    ticker_grouped = ticker_sorted.groupby('contractsymbol')
     
+    ticker_returns = pd.Series()
+    for contract in ticker_grouped.groups.keys():
+        sub_returns = (ticker_grouped.get_group(contract)['lastprice'].shift(1) - ticker_grouped.get_group(contract)['lastprice'])/ticker_grouped.get_group(contract)['lastprice']
+        #print(returns.index)
+        ticker_returns  = ticker_returns.append(sub_returns)
+        #print(all_returns.index)
+
+    ticker_returns.rename('returns',inplace=True)
+    ticker_joined = ticker_df.join(ticker_returns)
+    
+    return(ticker_joined)
+        
+IBM = get_options('IBM')
+
+IBM    
