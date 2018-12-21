@@ -124,4 +124,13 @@ def get_options(ticker):
         
 IBM = get_options('IBM')
 
-IBM    
+IBM.head()    
+IBM[IBM['optiontype'] == 'call'].groupby('contractsymbol').mean()
+
+IBM[IBM['contractsymbol'] == 'IBM181026C00116000'].pricedate
+
+plt.scatter('strike','returns', data=IBM[IBM['optiontype'] == 'put'].groupby('contractsymbol').mean())
+
+weird = IBM[IBM['optiontype'] == 'put'].groupby('contractsymbol').mean().query('returns >= 5').index.values
+
+IBM[IBM['contractsymbol'] == weird[0]][['expiry','pricedate','lastprice']]
