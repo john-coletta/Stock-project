@@ -39,6 +39,8 @@ print(aapl_options_df.columns)
 aapl_options_df['pricedate'] = pd.to_datetime(aapl_options_df['pricedate'], unit='s')
 aapl_options_df['expiry'] = pd.to_datetime(aapl_options_df['expiry'], unit='s')
 
+aapl_options_df['calcprice'] = (aapl_options_df['ask'] + aapl_options_df['bid']) / 2
+
 aapl_options_df['ask'].hist()
 aapl_options_df['strike'].hist()
 aapl_options_df['lastprice'].hist()
@@ -77,14 +79,18 @@ aapl_grouped.groups
 
 
 all_returns = pd.Series()
+calc_returns = pd.Series()
 for contract in aapl_grouped.groups.keys():
     returns = (aapl_grouped.get_group(contract)['lastprice'].shift(1) - aapl_grouped.get_group(contract)['lastprice'])/aapl_grouped.get_group(contract)['lastprice']
     #print(returns.index)
+    calcs = (aapl_grouped.get_group(contract)['calcprice'].shift(1) - aapl_grouped.get_group(contract)['calcprice'])/aapl_grouped.get_group(contract)['calcprice']
     all_returns  = all_returns.append(returns)
+    calc_returns = calc_returns.append(calcs)
     #print(all_returns.index)
 
 all_returns.rename('returns',inplace=True)
-aapl_joined = aapl_options_df.join(all_returns)
+calc_returns.rename('calc_returns',inplace=True)
+aapl_joined = aapl_options_df.join(all_returns).join(calc_returns)
 
 aapl_joined[aapl_joined['optiontype'] == 'put'].mean()
 
