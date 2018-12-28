@@ -41,6 +41,8 @@ aapl_options_df['expiry'] = pd.to_datetime(aapl_options_df['expiry'], unit='s')
 
 aapl_options_df['calcprice'] = (aapl_options_df['ask'] + aapl_options_df['bid']) / 2
 
+aapl_options_df['calcprice'].describe()
+
 aapl_options_df['ask'].hist()
 aapl_options_df['strike'].hist()
 aapl_options_df['lastprice'].hist()
@@ -92,6 +94,7 @@ all_returns.rename('returns',inplace=True)
 calc_returns.rename('calc_returns',inplace=True)
 aapl_joined = aapl_options_df.join(all_returns).join(calc_returns)
 
+aapl_joined.describe()
 aapl_joined[aapl_joined['optiontype'] == 'put'].mean()
 
 def get_options(ticker):
@@ -110,6 +113,7 @@ def get_options(ticker):
     ticker_dict = json.loads(r_ticker.text)
     ticker_df = pd.DataFrame(ticker_dict)
     
+    ticker_df['calcprice'] = (ticker_df['ask'] + ticker_df['bid']) / 2
     ticker_df['pricedate'] = pd.to_datetime(ticker_df['pricedate'], unit='s')
     ticker_df['expiry'] = pd.to_datetime(ticker_df['expiry'], unit='s')
     
@@ -117,14 +121,18 @@ def get_options(ticker):
     ticker_grouped = ticker_sorted.groupby('contractsymbol')
     
     ticker_returns = pd.Series()
+    ticker_calc_returns = pd.Series()
     for contract in ticker_grouped.groups.keys():
         sub_returns = (ticker_grouped.get_group(contract)['lastprice'].shift(1) - ticker_grouped.get_group(contract)['lastprice'])/ticker_grouped.get_group(contract)['lastprice']
         #print(returns.index)
+        sub_calc = (ticker_grouped.get_group(contract)['calcprice'].shift(1) - ticker_grouped.get_group(contract)['calcprice'])/ticker_grouped.get_group(contract)['calcprice']
         ticker_returns  = ticker_returns.append(sub_returns)
+        ticker_calc_returns = ticker_calc_returns.append(sub_calc)
         #print(all_returns.index)
 
     ticker_returns.rename('returns',inplace=True)
-    ticker_joined = ticker_df.join(ticker_returns)
+    ticker_calc_returns.rename('calc_returns',inplace=True)
+    ticker_joined = ticker_df.join(ticker_returns).join(ticker_calc_returns)
     
     return(ticker_joined)
         
