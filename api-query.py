@@ -37,7 +37,11 @@ print(aapl_options_df.head())
 print(aapl_options_df.columns)
 
 aapl_options_df['pricedate'] = pd.to_datetime(aapl_options_df['pricedate'], unit='s')
-aapl_options_df['expiry'] = pd.to_datetime(aapl_options_df['expiry'], unit='s')
+aapl_options_df['expiry'] = pd.to_datetime(aapl_options_df['expiry'], unit='s') + pd.Timedelta(hours=16)
+
+aapl_options_df['days_to_expiry'] = aapl_options_df['expiry'] - aapl_options_df['pricedate']
+
+print(aapl_options_df[['expiry','pricedate','days_to_expiry']].head())
 
 aapl_options_df['calcprice'] = (aapl_options_df['ask'] + aapl_options_df['bid']) / 2
 
@@ -119,7 +123,10 @@ def get_options(ticker):
     # Create calculated price and convert dates from UNIX time to datetime
     ticker_df['calcprice'] = (ticker_df['ask'] + ticker_df['bid']) / 2
     ticker_df['pricedate'] = pd.to_datetime(ticker_df['pricedate'], unit='s')
-    ticker_df['expiry'] = pd.to_datetime(ticker_df['expiry'], unit='s')
+    ticker_df['expiry'] = pd.to_datetime(ticker_df['expiry'], unit='s') + pd.Timedelta(hours=16)
+    
+    # Calculate days to expiry
+    ticker_df['days_to_expiry'] = ticker_df['expiry'] - ticker_df['pricedate']
     # Make sure the calc price is never 0 (if it use just use the last price)
     ticker_df['calcprice'] = np.where(ticker_df['calcprice'] == 0, ticker_df['lastprice'], ticker_df['calcprice'])
     # Sort by the date so the subsequent grouping is sorted too
@@ -155,7 +162,7 @@ IBM[IBM['optiontype'] == 'call'].groupby('contractsymbol').mean()
 
 IBM[IBM['contractsymbol'] == 'IBM181026C00116000'].pricedate
 
-plt.scatter('strike','returns', data=IBM[IBM['optiontype'] == 'put'].groupby('contractsymbol').mean())
+plt.scatter('strike','calc_returns', data=IBM[IBM['optiontype'] == 'put'].groupby('contractsymbol').mean())
 
 weird = IBM[IBM['optiontype'] == 'put'].groupby('contractsymbol').mean().query('returns >= 5').index.values
 
