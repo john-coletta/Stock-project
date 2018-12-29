@@ -41,6 +41,7 @@ aapl_options_df['expiry'] = pd.to_datetime(aapl_options_df['expiry'], unit='s')
 
 aapl_options_df['calcprice'] = (aapl_options_df['ask'] + aapl_options_df['bid']) / 2
 
+aapl_options_df['calcprice'] = np.where(aapl_options_df['calcprice'] == 0, aapl_options_df['lastprice'],aapl_options_df['calcprice'])
 aapl_options_df['calcprice'].describe()
 
 aapl_options_df['ask'].hist()
@@ -95,6 +96,7 @@ calc_returns.rename('calc_returns',inplace=True)
 aapl_joined = aapl_options_df.join(all_returns).join(calc_returns)
 
 aapl_joined.describe()
+
 aapl_joined[aapl_joined['optiontype'] == 'put'].mean()
 
 def get_options(ticker):
@@ -105,24 +107,33 @@ def get_options(ticker):
     NOTE: the first occurance of each option has a 
     return of NaN
     '''
-
-    options_url = 'http://100.26.29.52:5000/api/options/'
-
-    r_ticker = requests.get(options_url + 'all/' + str(ticker))
     
+    # This is the API url for options
+    options_url = 'http://100.26.29.52:5000/api/options/'
+    # Get the option chain for a stock (in json)
+    r_ticker = requests.get(options_url + 'all/' + str(ticker))
+    # Load the json into a dictionary and convert to a pandas dataframe
     ticker_dict = json.loads(r_ticker.text)
     ticker_df = pd.DataFrame(ticker_dict)
     
+    # Create calculated price and convert dates from UNIX time to datetime
     ticker_df['calcprice'] = (ticker_df['ask'] + ticker_df['bid']) / 2
     ticker_df['pricedate'] = pd.to_datetime(ticker_df['pricedate'], unit='s')
     ticker_df['expiry'] = pd.to_datetime(ticker_df['expiry'], unit='s')
-    
+    # Make sure the calc price is never 0 (if it use just use the last price)
+    ticker_df['calcprice'] = np.where(ticker_df['calcprice'] == 0, ticker_df['lastprice'], ticker_df['calcprice'])
+    # Sort by the date so the subsequent grouping is sorted too
     ticker_sorted = ticker_df.sort_values('pricedate')
+    # Group by contract
     ticker_grouped = ticker_sorted.groupby('contractsymbol')
     
+    # Create empty series for returns
     ticker_returns = pd.Series()
     ticker_calc_returns = pd.Series()
     for contract in ticker_grouped.groups.keys():
+        ''' This for loop calculates the true returns and calculated returns and
+        then joins them to the dataframe
+        '''
         sub_returns = (ticker_grouped.get_group(contract)['lastprice'].shift(1) - ticker_grouped.get_group(contract)['lastprice'])/ticker_grouped.get_group(contract)['lastprice']
         #print(returns.index)
         sub_calc = (ticker_grouped.get_group(contract)['calcprice'].shift(1) - ticker_grouped.get_group(contract)['calcprice'])/ticker_grouped.get_group(contract)['calcprice']
@@ -134,6 +145,7 @@ def get_options(ticker):
     ticker_calc_returns.rename('calc_returns',inplace=True)
     ticker_joined = ticker_df.join(ticker_returns).join(ticker_calc_returns)
     
+    # A dataframe with the option chain information and the returns is the output
     return(ticker_joined)
         
 IBM = get_options('IBM')
