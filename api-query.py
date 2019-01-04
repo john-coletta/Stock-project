@@ -18,8 +18,8 @@ from Portfolio import Portfolio
 from modelTools import modelTools as mt
 
 # API url (see http://100.26.29.52:5000/api/ui/)
-api_options_url = 'http://100.26.29.52:5000/api/options/'
-api_quotes_url = 'http://100.26.29.52:5000/api/quotes/'
+api_options_url = 'http://data.fanaleresearch.com:5000/api/options/'
+api_quotes_url = 'http://data.fanaleresearch.com:5000/api/quotes/'
 
 r = requests.get(api_options_url + 'all/AAPL')
 r2 = requests.get(api_quotes_url + 'AAPL')
@@ -36,12 +36,14 @@ aapl_price_df = pd.DataFrame(aapl_price)
 print(aapl_options_df.head())
 print(aapl_options_df.columns)
 
-aapl_options_df['pricedate'] = pd.to_datetime(aapl_options_df['pricedate'], unit='s')
-aapl_options_df['expiry'] = pd.to_datetime(aapl_options_df['expiry'], unit='s') + pd.Timedelta(hours=16)
+aapl_options_df['pricedate'] = aapl_options_df['pricedate'].astype('float').astype('int64').apply(datetime.fromtimestamp)
+aapl_options_df['expiry'] = aapl_options_df['expiry'].astype('int64').apply(datetime.fromtimestamp)# + pd.Timedelta(hours=16)
 
-aapl_options_df['days_to_expiry'] = aapl_options_df['expiry'] - aapl_options_df['pricedate']
+aapl_options_df['days_to_expiry'] = (aapl_options_df['expiry'] - aapl_options_df['pricedate']).dt.days
 
-print(aapl_options_df[['expiry','pricedate','days_to_expiry']].head())
+aapl_options_df[aapl_options_df['contractsymbol'] == 'AAPL190118C00145000'][['pricedate']]
+
+print(aapl_options_df[['expiry','pricedate','days_to_expiry']].head(20))
 
 aapl_options_df['calcprice'] = (aapl_options_df['ask'] + aapl_options_df['bid']) / 2
 
@@ -101,13 +103,17 @@ aapl_joined = aapl_options_df.join(all_returns).join(calc_returns)
 
 aapl_joined.describe()
 
+aapl_joined['contractsymbol'].value_counts()
+
+aapl_joined[aapl_joined['contractsymbol'] == 'AAPL190118C00145000'][['pricedate']].head(20)
 aapl_joined[aapl_joined['optiontype'] == 'put'].mean()
 
 def get_options(ticker):
     '''
     This function gets the option chain for a stock,
     puts it into a pandas dataframe, and calculates
-    daily returns for each option
+    daily returns for each option, calculated returns,
+    and days to expiration
     NOTE: the first occurance of each option has a 
     return of NaN
     '''
@@ -122,11 +128,11 @@ def get_options(ticker):
     
     # Create calculated price and convert dates from UNIX time to datetime
     ticker_df['calcprice'] = (ticker_df['ask'] + ticker_df['bid']) / 2
-    ticker_df['pricedate'] = pd.to_datetime(ticker_df['pricedate'], unit='s')
-    ticker_df['expiry'] = pd.to_datetime(ticker_df['expiry'], unit='s') + pd.Timedelta(hours=16)
+    ticker_df['pricedate'] = ticker_df['pricedate'].astype('int64').apply(datetime.fromtimestamp)
+    ticker_df['expiry'] = ticker_df['expiry'].astype('int64').apply(datetime.fromtimestamp)
     
     # Calculate days to expiry
-    ticker_df['days_to_expiry'] = ticker_df['expiry'] - ticker_df['pricedate']
+    ticker_df['days_to_expiry'] = (ticker_df['expiry'] - ticker_df['pricedate']).dt.days
     # Make sure the calc price is never 0 (if it use just use the last price)
     ticker_df['calcprice'] = np.where(ticker_df['calcprice'] == 0, ticker_df['lastprice'], ticker_df['calcprice'])
     # Sort by the date so the subsequent grouping is sorted too
@@ -157,6 +163,7 @@ def get_options(ticker):
         
 IBM = get_options('IBM')
 
+IBM['days_to_expiry']
 IBM.head()    
 IBM[IBM['optiontype'] == 'call'].groupby('contractsymbol').mean()
 
@@ -164,6 +171,6 @@ IBM[IBM['contractsymbol'] == 'IBM181026C00116000'].pricedate
 
 plt.scatter('strike','calc_returns', data=IBM[IBM['optiontype'] == 'put'].groupby('contractsymbol').mean())
 
-weird = IBM[IBM['optiontype'] == 'put'].groupby('contractsymbol').mean().query('returns >= 5').index.values
+weird = IBM[IBM['optiontype'] == 'put'].groupby('contractsymbol').mean().query('calc_returns >= 5').index.values
 
-IBM[IBM['contractsymbol'] == weird[0]][['expiry','pricedate','lastprice']]
+IBM[IBM['contractsymbol'] == weird[0]][['expiry','pricedate','lastprice', 'calc_returns']]
