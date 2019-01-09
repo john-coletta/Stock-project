@@ -18,8 +18,8 @@ from Portfolio import Portfolio
 from modelTools import modelTools as mt
 
 # API url (see http://100.26.29.52:5000/api/ui/)
-api_options_url = 'http://data.fanaleresearch.com:5000/api/options/'
-api_quotes_url = 'http://data.fanaleresearch.com:5000/api/quotes/'
+api_options_url = 'http://data.fanaleresearch.com/api/options/'
+api_quotes_url = 'http://data.fanaleresearch.com/api/quotes/'
 
 r = requests.get(api_options_url + 'all/AAPL')
 r2 = requests.get(api_quotes_url + 'AAPL')
@@ -119,7 +119,7 @@ def get_options(ticker):
     '''
     
     # This is the API url for options
-    options_url = 'http://100.26.29.52:5000/api/options/'
+    options_url = 'http://data.fanaleresearch.com/api/options/'
     # Get the option chain for a stock (in json)
     r_ticker = requests.get(options_url + 'all/' + str(ticker))
     # Load the json into a dictionary and convert to a pandas dataframe
@@ -128,7 +128,7 @@ def get_options(ticker):
     
     # Create calculated price and convert dates from UNIX time to datetime
     ticker_df['calcprice'] = (ticker_df['ask'] + ticker_df['bid']) / 2
-    ticker_df['pricedate'] = ticker_df['pricedate'].astype('int64').apply(datetime.fromtimestamp)
+    ticker_df['pricedate'] = ticker_df['pricedate'].astype('float').astype('int64').apply(datetime.fromtimestamp)
     ticker_df['expiry'] = ticker_df['expiry'].astype('int64').apply(datetime.fromtimestamp)
     
     # Calculate days to expiry
@@ -152,6 +152,7 @@ def get_options(ticker):
         sub_calc = (ticker_grouped.get_group(contract)['calcprice'].shift(1) - ticker_grouped.get_group(contract)['calcprice'])/ticker_grouped.get_group(contract)['calcprice']
         ticker_returns  = ticker_returns.append(sub_returns)
         ticker_calc_returns = ticker_calc_returns.append(sub_calc)
+        
         #print(all_returns.index)
 
     ticker_returns.rename('returns',inplace=True)
@@ -165,7 +166,7 @@ IBM = get_options('IBM')
 
 IBM['days_to_expiry']
 IBM.head()    
-IBM[IBM['optiontype'] == 'call'].groupby('contractsymbol').mean()
+IBM[IBM['optiontype'] == 'call'].groupby('contractsymbol').volume.mean()
 
 IBM[IBM['contractsymbol'] == 'IBM181026C00116000'].pricedate
 
