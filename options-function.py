@@ -54,15 +54,22 @@ aapl_options_df['ask'].hist()
 aapl_options_df['strike'].hist()
 aapl_options_df['lastprice'].hist()
 
-aapl_price_df['pricedate'] = pd.to_datetime(aapl_price_df['pricedate'], unit='s')
-aapl_price_df['regulardate'] = pd.to_datetime(aapl_price_df['regulardate'], unit='s')
+aapl_price_df['pricedate'] = aapl_price_df['pricedate'].astype('float').astype('int64').apply(datetime.fromtimestamp)
+aapl_price_df['regulardate'] = aapl_price_df['regulardate'].astype('float').astype('int64').apply(datetime.fromtimestamp)
 
 aapl_price_df['pricedate'].head()
 
 plt.plot(aapl_price_df['pricedate'], aapl_price_df['close'])
 
 plt.plot(aapl_options_df['pricedate'], aapl_options_df['lastprice'])
+aapl_price_df.head()
+aapl_price_df.columns
 
+aapl_price_df['regulardate'].head()
+aapl_options_df['pricedate'].head()
+joined_df = aapl_options_df.merge(aapl_price_df[['close','pricedate']], on='pricedate')
+
+joined_df[['close','ask','bid','strike','pricedate']].head()
 '''
 myport = Portfolio.Portfolio()
 mt.get_one_option('aapl',myport)
@@ -120,16 +127,24 @@ def get_options(ticker):
     
     # This is the API url for options
     options_url = 'http://data.fanaleresearch.com/api/options/'
+    stock_url = 'http://data.fanaleresearch.com/api/quotes/'
     # Get the option chain for a stock (in json)
     r_ticker = requests.get(options_url + 'all/' + str(ticker))
+    r_quote = requests.get(stock_url + str(ticker))
     # Load the json into a dictionary and convert to a pandas dataframe
     ticker_dict = json.loads(r_ticker.text)
     ticker_df = pd.DataFrame(ticker_dict)
+    
+    quote_dict = json.loads(r_quote.text)
+    quote_df = pd.DataFrame(quote_dict)
     
     # Create calculated price and convert dates from UNIX time to datetime
     ticker_df['calcprice'] = (ticker_df['ask'] + ticker_df['bid']) / 2
     ticker_df['pricedate'] = ticker_df['pricedate'].astype('float').astype('int64').apply(datetime.fromtimestamp)
     ticker_df['expiry'] = ticker_df['expiry'].astype('int64').apply(datetime.fromtimestamp)
+    
+    quote_df['pricedate'] = quote_df['pricedate'].astype('float').astype('int64').apply(datetime.fromtimestamp)
+    quote_df['regulardate'] = quote_df['regulardate'].astype('float').astype('int64').apply(datetime.fromtimestamp)
     
     # Calculate days to expiry
     ticker_df['days_to_expiry'] = (ticker_df['expiry'] - ticker_df['pricedate']).dt.days
@@ -159,8 +174,10 @@ def get_options(ticker):
     ticker_calc_returns.rename('calc_returns',inplace=True)
     ticker_joined = ticker_df.join(ticker_returns).join(ticker_calc_returns)
     
+    final_df = ticker_joined.merge(quote_df['close','pricedate'], on='pricedate')
+    
     # A dataframe with the option chain information and the returns is the output
-    return(ticker_joined)
+    return(final_df)
         
 IBM = get_options('IBM')
 
@@ -175,3 +192,5 @@ plt.scatter('strike','calc_returns', data=IBM[IBM['optiontype'] == 'put'].groupb
 weird = IBM[IBM['optiontype'] == 'put'].groupby('contractsymbol').mean().query('calc_returns >= 5').index.values
 
 IBM[IBM['contractsymbol'] == weird[0]][['expiry','pricedate','lastprice', 'calc_returns']]
+
+plt.scatter('days_to_expiry','calcprice', data=IBM)
