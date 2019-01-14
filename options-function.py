@@ -70,6 +70,12 @@ aapl_options_df['pricedate'].head()
 joined_df = aapl_options_df.merge(aapl_price_df[['close','pricedate']], on='pricedate')
 
 joined_df[['close','ask','bid','strike','pricedate']].head()
+
+joined_df['percent_diff'] = np.where(joined_df['optiontype']=='call', 
+         (joined_df['close']-joined_df['strike'])/((joined_df['strike']+joined_df['close'])/2) * 100.0,
+         (joined_df['strike']-joined_df['close'])/((joined_df['strike']+joined_df['close'])/2) * 100.0)
+         
+joined_df[joined_df['optiontype']=='put'][['percent_diff','close','strike','optiontype']].head()
 '''
 myport = Portfolio.Portfolio()
 mt.get_one_option('aapl',myport)
@@ -174,7 +180,10 @@ def get_options(ticker):
     ticker_calc_returns.rename('calc_returns',inplace=True)
     ticker_joined = ticker_df.join(ticker_returns).join(ticker_calc_returns)
     
-    final_df = ticker_joined.merge(quote_df['close','pricedate'], on='pricedate')
+    final_df = ticker_joined.merge(quote_df[['close','pricedate']], on='pricedate')
+    final_df['percent_diff'] = np.where(final_df['optiontype']=='call', 
+            (final_df['close']-final_df['strike'])/((final_df['strike']+final_df['close'])/2) * 100.0,
+            (final_df['strike']-final_df['close'])/((final_df['strike']+final_df['close'])/2) * 100.0)
     
     # A dataframe with the option chain information and the returns is the output
     return(final_df)
