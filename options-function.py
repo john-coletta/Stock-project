@@ -11,12 +11,12 @@ import numpy as np
 import json
 import requests
 import matplotlib.pyplot as plt
-import sys
 from datetime import datetime
 
-from Portfolio import Portfolio
-from modelTools import modelTools as mt
-
+########### The below code is just testing the aspects of the function on a 
+########### single use case to make sure it works.
+########### Uncomment to run
+'''
 # API url (see http://100.26.29.52:5000/api/ui/)
 api_options_url = 'http://data.fanaleresearch.com/api/options/'
 api_quotes_url = 'http://data.fanaleresearch.com/api/quotes/'
@@ -76,22 +76,8 @@ joined_df['percent_diff'] = np.where(joined_df['optiontype']=='call',
          (joined_df['strike']-joined_df['close'])/((joined_df['strike']+joined_df['close'])/2) * 100.0)
          
 joined_df[joined_df['optiontype']=='put'][['percent_diff','close','strike','optiontype']].head()
-'''
-myport = Portfolio.Portfolio()
-mt.get_one_option('aapl',myport)
 
-print(myport.holdings)
 
-myport.returns()
-myport.holdings['aapl']['returns']
-
-i = 0
-for stock in myport.holdings:
-    print(myport.holdings[stock]['returns'])
-    i += 1
-    if i == 5:
-        break
-  '''  
 print(aapl_options_df[aapl_options_df['contractsymbol'] == str(aapl_options_df['contractsymbol'].head()[0])]['pricedate'])
 
 aapl_sorted = aapl_options_df.sort_values('pricedate')
@@ -120,6 +106,8 @@ aapl_joined['contractsymbol'].value_counts()
 
 aapl_joined[aapl_joined['contractsymbol'] == 'AAPL190118C00145000'][['pricedate']].head(20)
 aapl_joined[aapl_joined['optiontype'] == 'put'].mean()
+'''
+
 
 def get_options(ticker):
     '''
@@ -181,9 +169,9 @@ def get_options(ticker):
     ticker_joined = ticker_df.join(ticker_returns).join(ticker_calc_returns)
     
     final_df = ticker_joined.merge(quote_df[['close','pricedate']], on='pricedate')
-    final_df['percent_diff'] = np.where(final_df['optiontype']=='call', 
-            (final_df['close']-final_df['strike'])/((final_df['strike']+final_df['close'])/2) * 100.0,
-            (final_df['strike']-final_df['close'])/((final_df['strike']+final_df['close'])/2) * 100.0)
+    final_df['percent_otm'] = np.where(final_df['optiontype']=='call', 
+            (final_df['strike']-final_df['close'])/(final_df['close']) * 100.0,
+            (final_df['close']-final_df['strike'])/(final_df['close']) * 100.0)
     
     # A dataframe with the option chain information and the returns is the output
     return(final_df)
